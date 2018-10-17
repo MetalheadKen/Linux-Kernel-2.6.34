@@ -126,7 +126,7 @@ struct igbvf_buffer {
 			unsigned int page_offset;
 		};
 	};
-	struct page *page;
+	struct page *pagep;
 };
 
 union igbvf_desc {
