@@ -663,6 +663,8 @@ __SYSCALL(__NR_rt_tgsigqueueinfo, sys_rt_tgsigqueueinfo)
 __SYSCALL(__NR_perf_event_open, sys_perf_event_open)
 #define __NR_recvmmsg				299
 __SYSCALL(__NR_recvmmsg, sys_recvmmsg)
+#define __NR_show_usid              300
+__SYSCALL(__NR_show_usid, sys_show_usid)
 
 #ifndef __NO_STUBS
 #define __ARCH_WANT_OLD_READDIR
