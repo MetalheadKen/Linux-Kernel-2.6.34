@@ -338,3 +338,4 @@ ENTRY(sys_call_table)
 	.long sys_perf_event_open
 	.long sys_recvmmsg
     .long sys_show_usid
+    .long sys_proc_info

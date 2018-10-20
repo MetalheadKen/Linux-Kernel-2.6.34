@@ -665,6 +665,8 @@ __SYSCALL(__NR_perf_event_open, sys_perf_event_open)
 __SYSCALL(__NR_recvmmsg, sys_recvmmsg)
 #define __NR_show_usid              300
 __SYSCALL(__NR_show_usid, sys_show_usid)
+#define __NR_proc_info              301
+__SYSCALL(__NR_proc_info, sys_proc_info)
 
 #ifndef __NO_STUBS
 #define __ARCH_WANT_OLD_READDIR

@@ -61,6 +61,7 @@ struct robust_list_head;
 struct getcpu_cache;
 struct old_linux_dirent;
 struct perf_event_attr;
+struct prinfo;
 
 #include <linux/types.h>
 #include <linux/aio_abi.h>
@@ -848,5 +849,7 @@ asmlinkage long sys_mmap_pgoff(unsigned long addr, unsigned long len,
 asmlinkage long sys_old_mmap(struct mmap_arg_struct __user *arg);
 
 asmlinkage long sys_show_usid(void);
+
+asmlinkage long sys_proc_info(struct prinfo *proc);
 
 #endif
