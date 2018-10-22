@@ -14,71 +14,72 @@
 SYSCALL_DEFINE1(proc_info, struct prinfo *, proc)
 {
     struct prinfo proc_info;
-    struct task_struct *curr_task, *sibling;
+    struct task_struct *task, *curr_task;
+    struct list_head *list;
+
+    unsigned long start_time, diff_time_1, diff_time_2, sibling_start_time;
    
     curr_task = current;
 
-    proc_info.state = curr_task->state;         /* Get current state of process */
-    proc_info.nice  = TASK_NICE(curr_task);     /* Get nice value of process */
+    memset(&proc_info, 0, sizeof(proc_info));
 
-    proc_info.pid   = task_tgid_vnr(curr_task);              /* Get current PID of process */
-    proc_info.parent_pid = curr_task->real_parent->pid;     /* Get parent PID of process */
+    proc_info.state = curr_task->state;                 /* Get current state of process */
+    proc_info.nice  = TASK_NICE(curr_task);             /* Get nice value of process */
 
-    /* 
-     * Get youngest children PID of process
-     * Check if current process has any childrens
-     */
-    if (!list_empty(&curr_task->children))
-        proc_info.youngest_child_pid = (list_first_entry(&curr_task->children, struct task_struct, children))->pid;
-    else
-        proc_info.youngest_child_pid = NONE;
-
-    /*
-     * Get younger sibling PID of process
-     * Check if current process has any younger siblings
-     */
-    sibling = list_entry(curr_task->sibling.next, struct task_struct, sibling);
-
-    if (sibling->pid < curr_task->pid)
-        proc_info.younger_sibling_pid = sibling->pid;
-    else
-        proc_info.younger_sibling_pid = NONE;
-    
-    /*
-     * Get older sibling PID of process
-     * Check if current process has any older siblings
-     */
-    sibling = list_entry(curr_task->sibling.prev, struct task_struct, sibling);
-
-    if (sibling->pid < curr_task->pid)
-        proc_info.older_sibling_pid = sibling->pid;
-    else
-        proc_info.older_sibling_pid = NONE;
+    proc_info.pid   = task_tgid_vnr(curr_task);         /* Get current PID of process */
+    proc_info.parent_pid = curr_task->parent->pid;      /* Get parent PID of process */
 
     proc_info.start_time = timespec_to_ns(&curr_task->start_time);      /* Get process start time */
     proc_info.user_time  = curr_task->utime;                            /* Get CPU time spent in user mode */
     proc_info.sys_time   = curr_task->stime;                            /* Get CPU time spent in system mode */
 
-    /*
-     * Get total user time and total system time of children
-     * Check if current process has any childrens
+    proc_info.uid   = current_uid();                    /* Get user id of process owner */
+    strcpy(proc_info.comm, curr_task->comm);            /* Get name of program executed */
+
+    /* 
+     * Get youngest children PID of process
+     * The youngest children is the process in the children list with highest start time
      */
-    proc_info.cutime = proc_info.cstime = 0;
+    proc_info.youngest_child_pid = start_time = NONE;
 
-    if (!list_empty(&curr_task->children)) {
-        struct list_head *pos;
+    list_for_each(list, &(curr_task->children)) {
+        task = list_entry(list, struct task_struct, sibling);
 
-        list_for_each(pos, &curr_task->children) {
-            struct task_struct *children = list_entry(pos, struct task_struct, children);
+        /* Get total user time and total system time of children */
+        proc_info.cutime = cputime_add(proc_info.cutime, task->utime);
+        proc_info.cstime = cputime_add(proc_info.cstime, task->stime);
 
-            proc_info.cutime = cputime_add(proc_info.cutime, children->utime);
-            proc_info.cstime = cputime_add(proc_info.cstime, children->stime);
+        if (start_time < timespec_to_ns(&task->start_time)) {
+            start_time = timespec_to_ns(&task->start_time);
+            proc_info.youngest_child_pid = task->pid;
+        }
+    }
+
+    /*
+     * Get younger and older sibling PID of process
+     * The next younger sibling is the process in the siblings list with a start time that is larger than,
+     * but nearest to the start time of the current process
+     * Likewise, the next older sibling is the one in the list with a next smaller start time
+     */
+    diff_time_1 = diff_time_2 = LONG_MAX;
+    proc_info.younger_sibling_pid = proc_info.older_sibling_pid = NONE;
+
+    list_for_each(list, &(curr_task->sibling)) {
+        task = list_entry(list, struct task_struct, sibling);
+
+        sibling_start_time = timespec_to_ns(&task->start_time);
+
+        if (proc_info.start_time < sibling_start_time && diff_time_1 > sibling_start_time - proc_info.start_time) {
+            diff_time_1 = sibling_start_time - proc_info.start_time;
+            proc_info.younger_sibling_pid = task->pid;
+        }
+
+        if (proc_info.start_time > sibling_start_time && diff_time_2 > proc_info.start_time - sibling_start_time) {
+            diff_time_2 = proc_info.start_time - sibling_start_time;
+            proc_info.older_sibling_pid = task->pid;
         }
     }
     
-    proc_info.uid = current_uid();                  /* Get user id of process owner */
-    strcpy(proc_info.comm, curr_task->comm);        /* Get name of program executed */
-
     if (copy_to_user(proc, &proc_info, sizeof(proc_info)))
         return -EFAULT;
 
